@@ -24,6 +24,7 @@ import cv2 as cv
 
 config_name = "config"
 config_ext = ".csv"
+image_ext = ".png"
 params_name = {"height": "h", "width": "w", "crop_height": "c_h", "crop_width": "c_w"} # header of the config file
 RED, GREEN, BLUE = (2, 1, 0)
 
@@ -68,9 +69,9 @@ def draw_silhouette(image):
 	#reds = image[:, :, RED]
 	greens = image[:, :, GREEN]
 	#blues = image[:, :, BLUE]
-
+		
 	mask = (greens < 35) | (np.amax(image, axis=2) != greens)
-
+	
 	silhouette = np.where(mask, 255, 0)
 	silhouette = np.array([255 - s for s in silhouette]) # makes hand black and background white
 
@@ -91,8 +92,8 @@ def remove_background(image, silhouette, height, width):
 	
 	for i in range(height):
 		for j in range(width):
-			if (silhouette[j,i] != 0):
-				no_back_image[j,i] = 255
+			if (silhouette[i,j] != 0):
+				no_back_image[i,j] = 255
 
 	return no_back_image
 	
@@ -106,11 +107,11 @@ def crop_margins(image, height, width):
 	Returns:
 	    margins: coordinates indicating where to crop the image
 	"""
-
-	top = (0 in image[0, :])
-	bottom = (0 in image[-1, :])
-	left = (0 in image[: ,0])
-	right = (0 in image[:, -1])
+	pix_col = 0
+	top = (pix_col in image[0, :])
+	bottom = (pix_col in image[-1, :])
+	left = (pix_col in image[:, 0])
+	right = (pix_col in image[:, -1])
 
 
 	top_index = 0
@@ -131,10 +132,10 @@ def crop_margins(image, height, width):
 		if(not bottom and bottom_index < (height - 1)):
 			bottom_index +=1
 
-		right = (0 in image[:, width - (right_index + 1)])
-		bottom = (0 in image[:, height - (bottom_index + 1)])
-		top = (0 in image[top_index,:])
-		left = (0 in image[:,left_index])
+		right = (pix_col in image[:, width - (right_index + 1)])
+		bottom = (pix_col in image[height - (bottom_index + 1), :])
+		top = (pix_col in image[top_index, :])
+		left = (pix_col in image[:, left_index])
 
 		done = (top and bottom and left and right)
 
@@ -212,27 +213,27 @@ def make_it_square(margins, h, w, c_h, c_w):
 	h_c_h = margins["bottom"] - margins["top"] # hypothetical crop height
 	h_c_w = margins["right"] - margins["left"] # hypothetical crop width
 
-	if((h_c_h > c_w or h_c_w > c_w) and (h_c_h != h_c_w)): # make it square by adding the background
+	if((h_c_h > c_h or h_c_w > c_w)): # make it square by adding the background
 		if(h_c_h > h_c_w): # add columns because height > width
-			left_padding = (h_c_h - (margins["right"] - margins["left"]))//2
-			right_padding = h_c_h - (margins["right"] - margins["left"]) - left_padding
+			left_padding = (h_c_h - h_c_w)//2
+			right_padding = h_c_h - h_c_w - left_padding
 			margins = add_horizontal_padding(margins, left_padding, right_padding, w)
 
 		else: # add rows
-			top_padding = (h_c_w - (margins["bottom"] - margins["top"]))//2
-			bottom_padding = h_c_w - (margins["bottom"] - margins["top"]) - top_padding
+			top_padding = (h_c_w - h_c_h)//2
+			bottom_padding = h_c_w - h_c_h - top_padding
 			margins = add_vertical_padding(margins, top_padding, bottom_padding, h)
 			
 
 	else:
-		if(margins["right"] - margins["left"] < c_w): # add columns
-			left_padding = (c_h - (margins["right"] - margins["left"]))//2
-			right_padding = c_h - (margins["right"] - margins["left"]) - left_padding
+		if(h_c_w < c_w): # add columns
+			left_padding = (c_w - h_c_w)//2
+			right_padding = c_w - h_c_w - left_padding
 			margins = add_horizontal_padding(margins, left_padding, right_padding, w)
 
-		if(margins["bottom"] - margins["top"] < c_h): # add rows
-			top_padding = c_h - (margins["bottom"] - margins["top"])//2
-			bottom_padding = c_h - (margins["bottom"] - margins["top"]) - top_padding
+		if(h_c_h < c_h): # add rows
+			top_padding = (c_h - h_c_h)//2
+			bottom_padding = c_h - h_c_h - top_padding
 			margins = add_vertical_padding(margins, top_padding, bottom_padding, h)
 	
 	return margins
@@ -286,7 +287,7 @@ def save_parameters(path, name, margins, h_sc, v_sc):
 	df.to_csv(path+"/"+name, header=list(params.keys()), index=False)
 	
 
-def preprocess_image(image_path, config_path, results_path):
+def preprocess_image(image_path, config_path, results_path, results_name):
 	"""Preprocess the image according to the configuration file
 
 	Parameters:
@@ -307,28 +308,33 @@ def preprocess_image(image_path, config_path, results_path):
 
 	img = read_image(image_path)
 	sil = draw_silhouette(img)
-	
+
 	margins = crop_margins(sil, height, width)
-	margins = make_it_square(margins, height, width, crop_height, crop_width)
+	
+	### BUG FIXED
+	h_c_h = margins["bottom"]-margins["top"]
+	h_c_w = margins["right"]-margins["left"]
+	if(h_c_h != h_c_w and h_c_h <= width and h_c_w <= height): # checking if it is possible or makes sense to make a square crop
+		margins = make_it_square(margins, height, width, crop_height, crop_width)
 
 	cropped_sil = sil[margins["top"]:margins["bottom"], margins["left"]:margins["right"]]
 	cropped_img = img[margins["top"]:margins["bottom"], margins["left"]:margins["right"]]
-
-	img_no_back = remove_background(cropped_img, cropped_sil, cropped_img.shape[0], cropped_img.shape[0])
+	
+	img_no_back = remove_background(cropped_img, cropped_sil, cropped_sil.shape[0], cropped_sil.shape[1])
 
 	scaled_img_no_back = scale(img_no_back, crop_height, crop_width)
 	scaled_cropped_sil = scale(cropped_sil, crop_height, crop_width)
 
-	vertical_scaling_factor = scaled_cropped_sil.shape[0]/cropped_sil.shape[0]
-	horizontal_scaling_factor = scaled_cropped_sil.shape[1]/cropped_sil.shape[1]
+	vertical_scaling_factor = crop_height/cropped_sil.shape[0]
+	horizontal_scaling_factor = crop_width/cropped_sil.shape[1]
 	
-	no_back_name = "resized_"+image_path.split("/")[-1]
-	cropped_sil_name = "silhouette_" + no_back_name
+	no_back_name = "resized_" + results_name + image_ext
+	cropped_sil_name = "silhouette_" + results_name + image_ext
 
 	save_image(results_path, no_back_name, scaled_img_no_back)
 	save_image(results_path, cropped_sil_name, scaled_cropped_sil)
 
-	file_name = no_back_name.split(".")[0] + ".csv"
+	file_name = results_name + ".csv"
 	save_parameters(results_path, file_name, margins, vertical_scaling_factor, horizontal_scaling_factor)
 	
 
@@ -337,5 +343,6 @@ if __name__ == "__main__":
 	parser.add_argument("-ip", "--image_path", help="path to the image to preprocess")
 	parser.add_argument("-cp", "--config_path", help="path to the config file")
 	parser.add_argument("-rp", "--results_path", help="path to the results folder")
+	parser.add_argument("-rn", "--results_name", help="name for the results files")
 	args = parser.parse_args()
-	preprocess_image(args.image_path, args.config_path, args.results_path)
+	preprocess_image(args.image_path, args.config_path, args.results_path, args.results_name)
