@@ -53,7 +53,9 @@ CycleGAN course assignment [code](http://www.cs.toronto.edu/~rgrosse/courses/csc
 <a href="https://github.com/Aixile/chainer-cyclegan">[Chainer]</a> (by Yanghua Jin),
 <a href="https://github.com/yunjey/mnist-svhn-transfer">[Minimal PyTorch]</a> (by yunjey),
 <a href="https://github.com/Ldpe2G/DeepLearningForFun/tree/master/Mxnet-Scala/CycleGAN">[Mxnet]</a> (by Ldpe2G),
-<a href="https://github.com/tjwei/GANotebooks">[lasagne/keras]</a> (by tjwei)</p>
+<a href="https://github.com/tjwei/GANotebooks">[lasagne/Keras]</a> (by tjwei),
+<a href="https://github.com/simontomaskarlsson/CycleGAN-Keras">[Keras]</a> (by Simon Karlsson)
+</p>
 </ul>
 
 ### pix2pix
@@ -107,7 +109,7 @@ python test.py --dataroot ./datasets/maps --name maps_cyclegan --model cycle_gan
 - The test results will be saved to a html file here: `./results/maps_cyclegan/latest_test/index.html`.
 
 ### pix2pix train/test
-- Download a pix2pix dataset (e.g.facades):
+- Download a pix2pix dataset (e.g.[facades](http://cmp.felk.cvut.cz/~tylecr1/facade/)):
 ```bash
 bash ./datasets/download_pix2pix_dataset.sh facades
 ```
