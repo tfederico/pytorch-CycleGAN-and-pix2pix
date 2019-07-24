@@ -111,6 +111,18 @@ def get_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, conve
             transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     return transforms.Compose(transform_list)
 
+def get_temp_transform(opt, params=None, grayscale=False, method=Image.BICUBIC, convert=True):
+    transform_list = []
+    
+    if convert:
+        transform_list += [transforms.ToTensor()]
+        if grayscale:
+            #transform_list += [transforms.Normalize((0.5,), (0.5,))]
+            pass
+        else:
+            transform_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    return transforms.Compose(transform_list)
+
 
 def __make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
