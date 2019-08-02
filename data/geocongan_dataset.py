@@ -95,6 +95,3 @@ class GeoConGANDataset(BaseDataset):
         we take a maximum of
         """
         return max(self.A_size, self.B_size)
-    def __len__(self):
-        """Return the total number of images."""
-        return len(self.A_paths) + len(self.B_paths)

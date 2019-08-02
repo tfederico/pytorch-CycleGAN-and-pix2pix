@@ -4,6 +4,10 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 from . import silnet
+from os import listdir
+from os.path import isfile, join
+import os
+
 
 
 class GeoConGANModel(BaseModel):
@@ -79,8 +83,9 @@ class GeoConGANModel(BaseModel):
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            
             self.SilNet = silnet.SilNet()
-            self.SilNet.load_state_dict(torch.load('../silnet.pth'))
+            self.SilNet.load_state_dict(torch.load('silnet.pth'))
             self.SilNet = self.SilNet.to(self.device)
             self.set_requires_grad([self.SilNet], False)
 	    
@@ -113,6 +118,7 @@ class GeoConGANModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        
         self.mask_A = input['mask_A' if AtoB else 'mask_B'].to(self.device)
         self.mask_B = input['mask_B' if AtoB else 'mask_A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
@@ -177,6 +183,11 @@ class GeoConGANModel(BaseModel):
             self.loss_idt_A = 0
             self.loss_idt_B = 0
 
+        # Geometric consistency loss A
+        self.loss_S_A = self.criterionGeo(self.mask_fake_A, self.mask_B)
+        # Geometric consistency loss B
+        self.loss_S_B = self.criterionGeo(self.mask_fake_B, self.mask_A)
+
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
@@ -185,10 +196,7 @@ class GeoConGANModel(BaseModel):
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
-        # Geometric consistency loss A
-        self.loss_S_A = self.criterionGeo(self.mask_fake_A, self.mask_B) * lambda_A
-        # Geometric consistency loss B
-        self.loss_S_B = self.criterionGeo(self.mask_fake_B, self.mask_A) * lambda_B
+        
         # combined loss and calculate gradients
         self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_S_A + self.loss_S_B
         self.loss_G.backward()
